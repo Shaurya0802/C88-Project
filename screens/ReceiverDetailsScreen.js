@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { Card, Header, Icon } from 'react-native-elements';
 import firebase from 'firebase';
 import db from '../config';
@@ -14,11 +14,15 @@ export default class ReceiverDetailsScreen extends React.Component {
             thingName: this.props.navigation.getParam('details')['thing_name'],
             reasonForRequesting: this.props.navigation.getParam('details')['reason_to_request'],
             requestId: this.props.navigation.getParam('details')['request_id'],
+            exchangeVal: "",
+            receiverCountryCurrencyCode: "",
             receiverName: '',
             receiverContact: '',
             receiverAddress: '',
             receiverRequestDocId: '',
-            username: ''
+            username: '',
+            donorCountryCurrencyCode: '',
+            value: ''
         }
     }
 
@@ -29,7 +33,8 @@ export default class ReceiverDetailsScreen extends React.Component {
                 this.setState({
                     receiverName: doc.data().first_name,
                     receiverContact: doc.data().contact,
-                    receiverAddress: doc.data().address
+                    receiverAddress: doc.data().address,
+                    receiverCountryCurrencyCode: doc.data().country_currency_code
                 });
             });
         });
@@ -38,7 +43,8 @@ export default class ReceiverDetailsScreen extends React.Component {
         .then((snapshot) => {
             snapshot.forEach((doc) => {
                 this.setState({
-                    receiverRequestDocId: doc.id
+                    receiverRequestDocId: doc.id,
+                    value: doc.data().value
                 });
             });
         });
@@ -48,7 +54,8 @@ export default class ReceiverDetailsScreen extends React.Component {
         db.collection("users").where('email_id','==', this.state.userId).get().then((snapshot)=>{
             snapshot.forEach((doc) => {
                 this.setState({
-                    username: doc.data().first_name + " " + doc.data().last_name
+                    username: doc.data().first_name + " " + doc.data().last_name,
+                    donorCountryCurrencyCode: doc.data().country_currency_code
                 });
             });
         });
@@ -60,6 +67,8 @@ export default class ReceiverDetailsScreen extends React.Component {
             request_id: this.state.requestId,
             requested_by: this.state.receiverName,
             donor_id: this.state.userId,
+            value: this.state.value,
+            country_currency_code: this.state.countryCurrencyCode,
             request_status: 'Donor Interested'
         });
     }
@@ -71,72 +80,117 @@ export default class ReceiverDetailsScreen extends React.Component {
             'donor_id': this.state.userId,
             'request_id': this.state.requestId,
             'thing_name': this.state.thingName,
+            'value': this.state.value,
+            'country_currency_code': this.state.countryCurrencyCode,
             'date': firebase.firestore.FieldValue.serverTimestamp(),
             'notification_status': 'unread',
             'message': message
         });
     }
 
+    getData = () => {
+        const data =  fetch("http://data.fixer.io/api/latest?access_key=d9f90a6f7fbc2b543415ef8a2a82ef23&format=1")
+        .then((response) => {
+            return response.json();
+        }).then((responseData) => {
+            var receiverCountryCurrencyCode = this.state.receiverCountryCurrencyCode;
+            var donorCountryCurrencyCode = this.state.donorCountryCurrencyCode;
+            
+            console.log(receiverCountryCurrencyCode);
+            console.log(donorCountryCurrencyCode);
+
+            var currency = responseData.rates;
+
+            console.log(currency);
+
+            var euroEquiValInRecCurrencyCode = currency[receiverCountryCurrencyCode];
+            console.log(euroEquiValInRecCurrencyCode + "euroEquiValInRecCurrencyCode");
+
+            var costInEuro = this.state.value/euroEquiValInRecCurrencyCode;
+            console.log(costInEuro + "costInEuro");
+
+            var euroEquiValDonorCurrencyCode = currency[donorCountryCurrencyCode];
+            var costInDonorCurrency = costInEuro * euroEquiValDonorCurrencyCode;
+
+            console.log(costInDonorCurrency + "costInDonorCurrency");
+
+            this.setState({
+                exchangeVal: costInDonorCurrency
+            });
+
+            console.log("Exchange Value: ", this.state.exchangeVal);
+        });
+    }
+
     componentDidMount(){
         this.getReceiverDetails();
+        this.getData();    
     }
 
     render() {
         return (
-            <View style={styles.container}>
-                <View>
-                    <Card title={`Requested Thing's information`}>
-                        <Card>
-                            <Text style={{fontWeight: 'bold'}}>
-                                Name: {this.state.thingName}
-                            </Text>
-                        </Card>
+            <ScrollView>
+                <View style={styles.container}>
+                    <View>
+                        <Card title={`Requested Thing's information`}>
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Name: {this.state.thingName}
+                                </Text>
+                            </Card>
 
-                        <Card>
-                            <Text style={{fontWeight: 'bold'}}>
-                                Reason to request: {this.state.reasonForRequesting}
-                            </Text>
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Reason to request: {this.state.reasonForRequesting}
+                                </Text>
+                            </Card>
+
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Value: {this.state.exchangeVal}
+                                </Text>
+                            </Card>
                         </Card>
-                    </Card>
+                    </View>
+
+                    <View>
+                        <Card title = {'Receiver Information'} titleStyle = {{fontSize: 20}}> 
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Name: {this.state.receiverName}
+                                </Text>
+                            </Card>
+
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Contact: {this.state.receiverContact}
+                                </Text>
+                            </Card>
+
+                            <Card>
+                                <Text style={{fontWeight: 'bold'}}>
+                                    Address: {this.state.receiverAddress}
+                                </Text>
+                            </Card>
+                        </Card>
+                    </View>
+
+                    <View style={styles.buttonContainer}>
+                        {this.state.receiverId !== this.state.userId ? (
+                            <TouchableOpacity 
+                                style={styles.button}
+                                onPress={() => {
+                                    this.updateThingStatus();
+                                    this.addNotification();
+                                    this.props.navigation.navigate('MyBarters');
+                                }}
+                            >
+                                <Text>I want to exchange</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
                 </View>
-
-                <View>
-                    <Card title = {'Receiver Information'} titleStyle = {{fontSize: 20}}> 
-                        <Card>
-                            <Text style={{fontWeight: 'bold'}}>
-                                Name: {this.state.receiverName}
-                            </Text>
-                        </Card>
-
-                        <Card>
-                            <Text style={{fontWeight: 'bold'}}>
-                                Contact: {this.state.receiverContact}
-                            </Text>
-                        </Card>
-
-                        <Card>
-                            <Text style={{fontWeight: 'bold'}}>
-                                Address: {this.state.receiverAddress}
-                            </Text>
-                        </Card>
-                    </Card>
-                </View>
-
-                <View style={styles.buttonContainer}>
-                    {this.state.receiverId !== this.state.userId ? (
-                        <TouchableOpacity 
-                            style={styles.button}
-                            onPress={() => {
-                                this.updateThingStatus();
-                                this.addNotification();
-                                this.props.navigation.navigate('MyBarters');
-                            }}
-                        >
-                            <Text>I want to exchange</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
-            </View>
+            </ScrollView>
         );
     }
 }
@@ -163,6 +217,6 @@ const styles = StyleSheet.create({
          height: 8
        },
       elevation : 16,
-      marginTop: 55
+      marginTop: 35
     }
 });

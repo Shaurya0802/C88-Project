@@ -18,12 +18,15 @@ export default class ExchangeThingsScreen extends React.Component {
             userDocId: "",
             IsRequestedItemRequestActive: "",
             countryCurrencyCode: "",
-            value: ""
+            value: "",
+            userCountryCurrencyCode: ""
         }
     }
 
     addRequest = (thingName, reasonToRequest) => {
+        var countryCurrencyCode = this.state.countryCurrencyCode;
         var userId = this.state.userId;
+        var value = this.state.value;
         var randomRequestId = this.createUniqueId();
 
         db.collection('requested_things').add({
@@ -31,6 +34,8 @@ export default class ExchangeThingsScreen extends React.Component {
             'thing_name': thingName,
             'reason_to_request': reasonToRequest,
             'request_id': randomRequestId,
+            'value': value,
+            'country_currency_code': countryCurrencyCode,
             'thing_status': 'requested'
         });
 
@@ -46,7 +51,9 @@ export default class ExchangeThingsScreen extends React.Component {
 
         this.setState({
             reasonToRequest: '',
-            thingName: ''
+            thingName: '',
+            value: '',
+            countryCurrencyCode: ''
         });
 
         return Alert.alert('Thing requested successfully');
@@ -77,7 +84,9 @@ export default class ExchangeThingsScreen extends React.Component {
                         requestId: doc.data().request_id,
                         requestedThingName: doc.data().thing_name,
                         thingStatus: doc.data().thing_status,
-                        docId: doc.id
+                        docId: doc.id,
+                        itemValue: doc.data().value,
+                        userCountryCurrencyCode: doc.data().country_currency_code
                     });
                     
                     console.log(doc.data());
@@ -134,36 +143,10 @@ export default class ExchangeThingsScreen extends React.Component {
             "thing_status": "received"
         });
     }
-
-    getData = () => {
-        db.collection("users").where("email_id", "==", this.state.userId).get().then((snapshot) => {
-            snapshot.forEach((doc) => {
-                this.setState({
-                    countryCurrencyCode: doc.data().country_currency_code
-                });
-            });
-        });
-
-        const data =  fetch("http://data.fixer.io/api/latest?access_key=d9f90a6f7fbc2b543415ef8a2a82ef23&format=1")
-        .then((response) => {
-            return response.json();
-        }).then((responseData) => {
-            var countryCurrencyCode = this.state.countryCurrencyCode;
-            var currency = responseData.rates;
-            var value = currency[countryCurrencyCode];
-
-            console.log(currency);
-
-            this.setState({
-                value: value
-            });
-        });
-    }
     
     componentDidMount() {
         this.getThingRequest();
         this.getIsRequestedItemRequestActive();
-        this.getData();
     }
     
     render() {
@@ -180,7 +163,15 @@ export default class ExchangeThingsScreen extends React.Component {
                         <Text>{this.state.thingStatus}</Text>
                     </View>
 
-                    
+                    <View style={{borderColor: 'orange', borderWidth: 2, justifyContent: 'center', alignItems: 'center', padding: 10, margin: 10}}>
+                        <Text style={{fontSize: 15, fontWeight: 'bold', textDecorationLine: 'underline'}}>Requested item value</Text>
+                        <Text>{this.state.itemValue}</Text>
+                    </View>
+
+                    <View style={{borderColor: 'orange', borderWidth: 2, justifyContent: 'center', alignItems: 'center', padding: 10, margin: 10}}>
+                        <Text style={{fontSize: 15, fontWeight: 'bold', textDecorationLine: 'underline'}}>Country currency code</Text>
+                        <Text>{this.state.userCountryCurrencyCode}</Text>
+                    </View>
 
                     <TouchableOpacity 
                         style={{borderWidth: 1, borderColor: '#000', backgroundColor: '#ff9800', width: 300, alignItems: 'center', alignSelf: 'center', height: 30, marginTop: 30}}
@@ -211,9 +202,26 @@ export default class ExchangeThingsScreen extends React.Component {
                         <TextInput 
                             placeholder="Enter Reason to Request" 
                             style={styles.formTextInput}
-                            multiline numberOfLines={8}
+                            multiline 
+                            numberOfLines={8}
                             onChangeText={e => {this.setState({reasonToRequest: e})}}
                             value={this.state.reasonToRequest}
+                        />
+
+                        <TextInput 
+                            placeholder="Enter the value of the item"
+                            style={styles.formTextInput}
+                            keyboardType="numeric"
+                            onChangeText={e => {this.setState({value: e})}}
+                            value={this.state.value}
+                        />
+
+                        <TextInput 
+                            placeholder="Enter the country currency code"
+                            style={styles.formTextInput}
+                            keyboardType="default"
+                            onChangeText={e => {this.setState({countryCurrencyCode: e})}}
+                            value={this.state.countryCurrencyCode}
                         />
     
                         <TouchableOpacity 
