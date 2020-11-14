@@ -26,9 +26,8 @@ export default class ReceiverDetailsScreen extends React.Component {
         }
     }
 
-    getReceiverDetails = () => {
-        db.collection('users').where('email_id', '==', this.state.receiverId).get()
-        .then((snapshot) => {
+    getReceiverDetails = async () => {
+        await db.collection('users').where('email_id', '==', this.state.receiverId).get().then((snapshot) => {
             snapshot.forEach((doc) => {
                 this.setState({
                     receiverName: doc.data().first_name,
@@ -37,85 +36,85 @@ export default class ReceiverDetailsScreen extends React.Component {
                     receiverCountryCurrencyCode: doc.data().country_currency_code
                 });
             });
+
+            console.log(this.state.receiverCountryCurrencyCode);
         });
 
-        db.collection('requested_things').where('request_id', '==', this.state.requestId).get()
-        .then((snapshot) => {
+        await db.collection('requested_things').where('request_id', '==', this.state.requestId).get().then((snapshot) => {
             snapshot.forEach((doc) => {
                 this.setState({
                     receiverRequestDocId: doc.id,
                     value: doc.data().value
                 });
+
+                console.log("Item Value 👌: " + this.state.value);
             });
         });
     }
 
-    getUserDetails = () => {
-        db.collection("users").where('email_id','==', this.state.userId).get().then((snapshot)=>{
+    getUserDetails = async () => {
+        await db.collection("users").where('email_id','==', this.state.userId).get().then((snapshot)=>{
             snapshot.forEach((doc) => {
                 this.setState({
                     username: doc.data().first_name + " " + doc.data().last_name,
                     donorCountryCurrencyCode: doc.data().country_currency_code
                 });
             });
+
+            this.getData();
         });
     }
 
-    updateThingStatus = () => {
-        db.collection('all_barters').add({
+    updateThingStatus = async () => {
+        await db.collection('all_barters').add({
             thing_name: this.state.thingName,
             request_id: this.state.requestId,
             requested_by: this.state.receiverName,
             donor_id: this.state.userId,
-            value: this.state.value,
-            country_currency_code: this.state.countryCurrencyCode,
             request_status: 'Donor Interested'
         });
     }
 
-    addNotification = () => {
+    addNotification = async () => {
         var message = this.state.username + 'has shown interest in donating your requested item';
-        db.collection('all_notifications').add({
+        await db.collection('all_notifications').add({
             'targeted_user_id': this.state.receiverId,
             'donor_id': this.state.userId,
             'request_id': this.state.requestId,
             'thing_name': this.state.thingName,
-            'value': this.state.value,
-            'country_currency_code': this.state.countryCurrencyCode,
             'date': firebase.firestore.FieldValue.serverTimestamp(),
             'notification_status': 'unread',
             'message': message
         });
     }
 
-    getData = () => {
-        const data =  fetch("http://data.fixer.io/api/latest?access_key=d9f90a6f7fbc2b543415ef8a2a82ef23&format=1")
+    getData = async () => {
+        const data = await fetch("http://data.fixer.io/api/latest?access_key=d9f90a6f7fbc2b543415ef8a2a82ef23&format=1")
         .then((response) => {
             return response.json();
         }).then((responseData) => {
             var receiverCountryCurrencyCode = this.state.receiverCountryCurrencyCode;
             var donorCountryCurrencyCode = this.state.donorCountryCurrencyCode;
             
-            console.log(receiverCountryCurrencyCode);
-            console.log(donorCountryCurrencyCode);
+            console.log("Receiver Country Currency Code: " + receiverCountryCurrencyCode, "Donor Country Currency Code: " + donorCountryCurrencyCode);
 
             var currency = responseData.rates;
 
-            console.log(currency);
-
             var euroEquiValInRecCurrencyCode = currency[receiverCountryCurrencyCode];
-            console.log(euroEquiValInRecCurrencyCode + "euroEquiValInRecCurrencyCode");
+            console.log(euroEquiValInRecCurrencyCode + ": euroEquiValInRecCurrencyCode");
 
             var costInEuro = this.state.value/euroEquiValInRecCurrencyCode;
-            console.log(costInEuro + "costInEuro");
+            console.log(costInEuro + ": costInEuro");
 
             var euroEquiValDonorCurrencyCode = currency[donorCountryCurrencyCode];
             var costInDonorCurrency = costInEuro * euroEquiValDonorCurrencyCode;
+            var correctValue = costInDonorCurrency.toFixed(2);
+            var finalValue = correctValue + " " +this.state.donorCountryCurrencyCode;
 
-            console.log(costInDonorCurrency + "costInDonorCurrency");
+            console.log(finalValue + ": costInDonorCurrency");
 
             this.setState({
-                exchangeVal: costInDonorCurrency
+                exchangeVal: finalValue
             });
 
             console.log("Exchange Value: ", this.state.exchangeVal);
@@ -124,6 +123,7 @@ export default class ReceiverDetailsScreen extends React.Component {
 
     componentDidMount(){
         this.getReceiverDetails();
+        this.getUserDetails();
         this.getData();    
     }
 
